@@ -1,8 +1,11 @@
 ﻿import 'package:flutter/material.dart';
 
 import 'screens/login_screen.dart';
+import 'services/supabase_bootstrap.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseBootstrap.initialize();
   runApp(const MyApp());
 }
 

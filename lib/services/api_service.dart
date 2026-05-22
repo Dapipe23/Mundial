@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/team.dart';
+import 'supabase_bootstrap.dart';
 
 class JugadoresResponse {
   final bool success;
@@ -35,23 +37,9 @@ class AuthResult {
 
 class ApiService {
   static const String baseUrl = 'https://album-panini-furq.vercel.app';
-  static const String authBaseUrl = 'https://flutter-production-bdb7.up.railway.app';
   static const String seleccionesPath = '/api/selecciones';
   static const String jugadoresPath = '/api/jugadores';
-
-  static const List<String> _registerPaths = [
-    '/api/auth/register',
-    '/api/register',
-    '/api/usuarios/register',
-    '/auth/register',
-  ];
-
-  static const List<String> _loginPaths = [
-    '/api/auth/login',
-    '/api/login',
-    '/api/usuarios/login',
-    '/auth/login',
-  ];
+  static const String appUsersTable = 'app_users';
 
   static Future<List<Team>> fetchSelecciones({bool forceRefresh = false}) async {
     final prefs = await SharedPreferences.getInstance();
@@ -121,104 +109,14 @@ class ApiService {
     required String email,
     required String password,
   }) async {
-    final payload = {
-      'name': name,
-      'nombre': name,
-      'email': email,
-      'password': password,
-      'contrasena': password,
-      'contraseña': password,
-    };
-    return _postAuth(
-      candidatePaths: _registerPaths,
-      payload: payload,
-      fallbackMessage: 'No fue posible registrar. Verifica la configuración de autenticación del servidor.',
-    );
+    return _registerWithSupabase(name: name, email: email, password: password);
   }
 
   static Future<AuthResult> loginUser({
     required String email,
     required String password,
   }) async {
-    final payload = {
-      'email': email,
-      'password': password,
-      'contrasena': password,
-      'contraseña': password,
-    };
-    return _postAuth(
-      candidatePaths: _loginPaths,
-      payload: payload,
-      fallbackMessage: 'No fue posible iniciar sesión. Verifica la configuración de autenticación del servidor.',
-    );
-  }
-
-  static Future<AuthResult> _postAuth({
-    required List<String> candidatePaths,
-    required Map<String, dynamic> payload,
-    required String fallbackMessage,
-  }) async {
-    for (final path in candidatePaths) {
-      final uri = Uri.parse(authBaseUrl + path);
-      try {
-        final resp = await http
-            .post(
-              uri,
-              headers: const {'Content-Type': 'application/json'},
-              body: json.encode(payload),
-            )
-            .timeout(const Duration(seconds: 12));
-
-        final is2xx = resp.statusCode >= 200 && resp.statusCode < 300;
-        final decoded = _tryDecodeMap(resp.body);
-
-        if (is2xx) {
-          final success = decoded['success'] as bool? ?? true;
-          if (!success) {
-            continue;
-          }
-          final nestedUser = decoded['user'] as Map<String, dynamic>?;
-          final resolvedName = _pickString([
-            nestedUser?['name'],
-            nestedUser?['nombre'],
-            decoded['name'],
-            decoded['nombre'],
-          ]);
-          final resolvedEmail = _pickString([
-            nestedUser?['email'],
-            decoded['email'],
-          ]);
-          final message = _pickString([
-                decoded['message'],
-                decoded['mensaje'],
-              ]) ??
-              'Operación completada correctamente.';
-
-          return AuthResult(
-            success: true,
-            message: message,
-            name: resolvedName,
-            email: resolvedEmail,
-          );
-        }
-      } catch (_) {
-        // try next candidate endpoint
-      }
-    }
-
-    return AuthResult(success: false, message: fallbackMessage);
-  }
-
-  static Map<String, dynamic> _tryDecodeMap(String body) {
-    try {
-      final decoded = json.decode(body);
-      if (decoded is Map<String, dynamic>) {
-        return decoded;
-      }
-    } catch (_) {
-      // ignore parse errors
-    }
-    return <String, dynamic>{};
+    return _loginWithSupabase(email: email, password: password);
   }
 
   static String? _pickString(List<dynamic> values) {
@@ -228,5 +126,88 @@ class ApiService {
       }
     }
     return null;
+  }
+
+  static Future<AuthResult> _registerWithSupabase({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      await SupabaseBootstrap.ensureInitialized();
+
+      final existing = await Supabase.instance.client
+          .from(appUsersTable)
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+
+      if (existing != null) {
+        return const AuthResult(
+          success: false,
+          message: 'Ese correo ya existe. Inicia sesión con esa cuenta.',
+        );
+      }
+
+      final inserted = await Supabase.instance.client
+          .from(appUsersTable)
+          .insert({
+            'full_name': name,
+            'email': email,
+            'password': password,
+          })
+          .select('full_name, email')
+          .single();
+
+      return AuthResult(
+        success: true,
+        message: 'Cuenta creada correctamente.',
+        name: inserted['full_name'] as String? ?? name,
+        email: inserted['email'] as String? ?? email,
+      );
+    } catch (e) {
+      return AuthResult(
+        success: false,
+        message: 'Error al registrar en Supabase: ${e.toString()}',
+      );
+    }
+  }
+
+  static Future<AuthResult> _loginWithSupabase({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      await SupabaseBootstrap.ensureInitialized();
+      final user = await Supabase.instance.client
+          .from(appUsersTable)
+          .select('full_name, email')
+          .eq('email', email)
+          .eq('password', password)
+          .maybeSingle();
+
+      if (user == null) {
+        return const AuthResult(
+          success: false,
+          message: 'Correo o contraseña incorrectos.',
+        );
+      }
+
+      final name = _pickString([
+        user['full_name'],
+      ]);
+
+      return AuthResult(
+        success: true,
+        message: 'Inicio de sesión exitoso.',
+        name: name,
+        email: user['email'] as String? ?? email,
+      );
+    } catch (e) {
+      return AuthResult(
+        success: false,
+        message: 'Error al iniciar sesión con Supabase: ${e.toString()}',
+      );
+    }
   }
 }
