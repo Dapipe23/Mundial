@@ -8,14 +8,14 @@ class Sticker {
 
   StickerType get type {
     if (number == 1) return StickerType.shield;
-    if (number == 13) return StickerType.teamPhoto;
+    if (number == 20) return StickerType.teamPhoto;
     return StickerType.player;
   }
 
   String get displayName {
     if (number == 1) return 'Escudo';
-    if (number == 13) return 'Foto del equipo';
-    return 'Jugador $number';
+    if (number == 20) return 'Foto del equipo';
+    return 'Jugador';
   }
 
   String get shortLabel => '#$team, #$number';

@@ -58,6 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final user = User(
+      id: auth.userId ?? '',
       name: auth.name ?? name,
       email: auth.email ?? email,
     );

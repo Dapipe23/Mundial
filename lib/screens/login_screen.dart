@@ -52,6 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     final user = User(
+      id: auth.userId ?? '',
       name: auth.name ?? 'Coleccionista',
       email: auth.email ?? email,
     );

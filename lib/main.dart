@@ -12,9 +12,9 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  static const _brandBlue = Color(0xFF062A5A);
+  static const _brandBlue  = Color(0xFF062A5A);
   static const _brandGreen = Color(0xFF0B6E4F);
-  static const _brandGold = Color(0xFFF3C969);
+  static const _brandGold  = Color(0xFFF3C969);
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
     );
 
     return MaterialApp(
-      title: 'Álbum Panini',
+      title: 'Álbum Panini Mundial 2026',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -76,18 +76,27 @@ class MyApp extends StatelessWidget {
         ),
         navigationBarTheme: NavigationBarThemeData(
           backgroundColor: Colors.white,
-          height: 74,
-          indicatorColor: _brandBlue.withValues(alpha: 0.12),
+          height: 70,
+          indicatorColor: _brandBlue.withValues(alpha: 0.13),
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return IconThemeData(color: selected ? _brandBlue : const Color(0xFF6B84A0), size: 24);
+          }),
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
             return TextStyle(
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? _brandBlue : const Color(0xFF51627A),
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+              fontSize: 11.5,
+              color: selected ? _brandBlue : const Color(0xFF6B84A0),
             );
           }),
+        ),
+        chipTheme: ChipThemeData(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       home: const LoginScreen(),
     );
   }
 }
+

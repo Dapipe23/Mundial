@@ -24,12 +24,14 @@ class JugadoresResponse {
 class AuthResult {
   final bool success;
   final String message;
+  final String? userId;
   final String? name;
   final String? email;
 
   const AuthResult({
     required this.success,
     required this.message,
+    this.userId,
     this.name,
     this.email,
   });
@@ -156,12 +158,13 @@ class ApiService {
             'email': email,
             'password': password,
           })
-          .select('full_name, email')
+          .select('id, full_name, email')
           .single();
 
       return AuthResult(
         success: true,
         message: 'Cuenta creada correctamente.',
+        userId: inserted['id']?.toString(),
         name: inserted['full_name'] as String? ?? name,
         email: inserted['email'] as String? ?? email,
       );
@@ -181,7 +184,7 @@ class ApiService {
       await SupabaseBootstrap.ensureInitialized();
       final user = await Supabase.instance.client
           .from(appUsersTable)
-          .select('full_name, email')
+          .select('id, full_name, email')
           .eq('email', email)
           .eq('password', password)
           .maybeSingle();
@@ -200,6 +203,7 @@ class ApiService {
       return AuthResult(
         success: true,
         message: 'Inicio de sesión exitoso.',
+        userId: user['id']?.toString(),
         name: name,
         email: user['email'] as String? ?? email,
       );
